@@ -9,6 +9,7 @@ import {execHaloCmdWeb} from "@arx-research/libhalo/api/web.js";
 const Home: NextPage = () => {
   const [statusText, setStatusText] = useState([])
   const [infoText, setInfoText] = useState([])
+  const [isCommunity, setIsCommunity] = useState(false)
 
   function extractCharacters(inputString) {
     if (inputString.length < 6) {
@@ -57,6 +58,10 @@ const Home: NextPage = () => {
         }
     }
 
+    async function createCommunity() {
+      setIsCommunity(true)
+  }
+
   return (
     <div className="w-full flex flex-col justify-between pt-8 h-screen">
       {/* <MetaHeader /> */}
@@ -64,21 +69,30 @@ const Home: NextPage = () => {
               {JSON.stringify(statusText[statusText.length - 1].etherAddress, null, 4)}
             
             <ul> */}
+            <div>
+              <h2 className='mx-auto text-center font-extrabold text-2xl'>Network State XYZ</h2>
+              {isCommunity ? <h2 className='mx-auto text-center font-thin text-lg'>Citizens: {statusText.length}</h2> : "" }
+            </div>
             <ul>
               {statusText.length != 0 ? (statusText.map((item, index) => (
                 <div className='flex flex-row w-full'>
                 {/* {item.ethereumAddress ? ( */}
-                  <li className='bg-secondary rounded-md px-2 py-3 mx-auto my-6 w-full' key={index}>Address: {extractCharacters(item.etherAddress)}</li>
-                 {/* ) : ""} */}
+                  <li className='bg-secondary rounded-md px-2 py-3 mx-auto my-6 w-full justify-evenly flex' key={index}><div className='font-bold'>Address: {extractCharacters(item.etherAddress)}</div>  <div>Pub Key: {extractCharacters(item.publicKey)}</div></li>
+                 {/* ) : ""} */} 
                 </div>
               ))) : ""}
           </ul>
     
             <div className='pb-48 w-full flex mx-auto flex-col px-4 gap-y-4'>
-              <button onClick={() => btnClick()} className="btn btn-neutral">Authorize user</button>
-              <input type="text" placeholder="Name" className="input input-bordered w-full mt-8" />
-              <input type="text" placeholder="Description" className="input input-bordered w-full mt-8" />
-              <button onClick={() => btnClick()} className="btn btn-neutral">Create Community</button>
+              {isCommunity ? <button onClick={() => btnClick()} className="btn btn-neutral">Authorize with ERS</button> : "" }
+              {!isCommunity ? (
+                <>
+                  <input type="text" placeholder="Name" className="input input-bordered w-full mt-8" />
+                  <input type="text" placeholder="Description" className="input input-bordered w-full mt-8" />
+                  <button onClick={() => createCommunity()} className="btn btn-neutral">Create Community</button>
+                </>
+              )
+              : "" }
             </div>
     </div>
   );
