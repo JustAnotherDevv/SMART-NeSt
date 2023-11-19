@@ -2,6 +2,9 @@
 
 ![SMART NeSt Logo](images/logo.jpeg)
 
+## User flow of the solution
+![User flow](images/wakuwakuUntitled-2023-07-21-1734.png)
+
 ## Overview
 
 SMART NeSt is an Internet of Things (IoT) smart home infrastructure designed for self-organized communities, also known as network states. This project aims to provide a robust and scalable solution for creating smart homes that are interconnected within a community, fostering collaboration, sustainability, and efficient resource management.
