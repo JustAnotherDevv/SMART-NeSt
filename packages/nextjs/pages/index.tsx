@@ -7,7 +7,19 @@ import { MetaHeader } from "~~/components/MetaHeader";
 import {execHaloCmdWeb} from "@arx-research/libhalo/api/web.js";
 
 const Home: NextPage = () => {
-  const [statusText, setStatusText] = useState('Click on the button');
+  const [statusText, setStatusText] = useState([])
+  const [infoText, setInfoText] = useState([])
+
+  function extractCharacters(inputString) {
+    if (inputString.length < 6) {
+      return 'String is too short';
+    }
+  
+    const firstThree = inputString.substring(0, 3);
+    const lastThree = inputString.substring(inputString.length - 3);
+  
+    return firstThree + " ... " + lastThree;
+  }
 
     async function btnClick() {
         const command = {
@@ -25,88 +37,50 @@ const Home: NextPage = () => {
             res = await execHaloCmdWeb(command, {
                 statusCallback: (cause) => {
                     if (cause === "init") {
-                        setStatusText("Please tap the tag to the back of your smartphone and hold it...");
+                      setInfoText("Please tap the tag to the back of your smartphone and hold it...");
                     } else if (cause === "retry") {
-                        setStatusText("Something went wrong, please try to tap the tag again...");
+                      setInfoText("Something went wrong, please try to tap the tag again...");
                     } else if (cause === "scanned") {
-                        setStatusText("Tag scanned successfully, post-processing the result...");
+                      setInfoText("Tag scanned successfully, post-processing the result...");
                     } else {
-                        setStatusText(cause);
+                      setInfoText(cause);
                     }
                 }
             });
             // the command has succeeded, display the result to the user
-            setStatusText(JSON.stringify(res, null, 4));
+            let tempStatus = statusText;
+            tempStatus.push(res)
+            setStatusText(tempStatus);
         } catch (e) {
             // the command has failed, display error to the user
-            setStatusText('Scanning failed, click on the button again to retry. Details: ' + String(e));
+            // setStatusText('Scanning failed, click on the button again to retry. Details: ' + String(e));
         }
     }
 
   return (
-    <>
+    <div className="w-full flex flex-col justify-between pt-8 h-screen">
       {/* <MetaHeader /> */}
-      <div style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordWrap: "break-word" }}>
-              {statusText}
+      {/* <div style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordWrap: "break-word" }}>
+              {JSON.stringify(statusText[statusText.length - 1].etherAddress, null, 4)}
+            
+            <ul> */}
+            <ul>
+              {statusText.length != 0 ? (statusText.map((item, index) => (
+                <div className='flex flex-row w-full'>
+                {/* {item.ethereumAddress ? ( */}
+                  <li className='bg-secondary rounded-md px-2 py-3 mx-auto my-6 w-full' key={index}>Address: {extractCharacters(item.etherAddress)}</li>
+                 {/* ) : ""} */}
+                </div>
+              ))) : ""}
+          </ul>
+    
+            <div className='pb-48 w-full flex mx-auto flex-col px-4 gap-y-4'>
+              <button onClick={() => btnClick()} className="btn btn-neutral">Authorize user</button>
+              <input type="text" placeholder="Name" className="input input-bordered w-full mt-8" />
+              <input type="text" placeholder="Description" className="input input-bordered w-full mt-8" />
+              <button onClick={() => btnClick()} className="btn btn-neutral">Create Community</button>
             </div>
-            <button onClick={() => btnClick()}>Sign message 010203 using key #1</button>
-      {/* <div className="flex items-center flex-col flex-grow pt-10">
-        <div className="px-5"> */}
-          {/* <h1 className="text-center mb-8">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Scaffold-ETH 2</span>
-          </h1> */}
-          {/* <pre style={{fontSize: 12, textAlign: "left", whiteSpace: "pre-wrap", wordWrap: "break-word"}}>
-                {statusText}
-            </pre>
-            <div style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
-              {statusText}
-            </div>
-            <button onClick={() => btnClick()}>Sign message 010203 using key #1</button>
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/pages/index.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
-        </div>
-
-        <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contract
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div> */}
-    </>
+    </div>
   );
 };
 

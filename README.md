@@ -1,6 +1,6 @@
 # SMART NeSt - IoT Smart Home Infrastructure for Self-Organized Network State Communities
 
-![SMART NeSt Logo](images/logo.PNG)
+![SMART NeSt Logo](images/logo.jpeg)
 
 ## Overview
 
