@@ -5,6 +5,12 @@
 ## User flow of the solution
 ![User flow](images/wakuwakuUntitled-2023-07-21-1734.png)
 
+## Breakdown of Raspberry Pi services 
+![breakdown](images/wakuwaku_device_1.PNG)
+
+Waku node running on the raspberry pi from binary that was built from scratch.
+![nwaku on raspberry pi](images/waku_4_raspberry.PNG)
+
 ## Overview
 
 SMART NeSt is an Internet of Things (IoT) smart home infrastructure designed for self-organized communities, also known as network states. This project aims to provide a robust and scalable solution for creating smart homes that are interconnected within a community, fostering collaboration, sustainability, and efficient resource management.
@@ -21,19 +27,19 @@ SMART NeSt consists of physical Raspberry Pi nodes strategically placed within t
 
 ### Prerequisites
 
-ToDo
+- Get at least 1 Raspberry Pi
+- Bott the device with Ubuntu
+- Install gcc and Rust toolchain
+- git clone nwaku and compile it according to instructions
+- configure nwaku for selected community by specifying `content topic`
+- run nwaku
 
-### Installation
-
-ToDo
-
-
-## Quickstart
+### Installation quickstarts for mobile dapp
 
 1. Clone this repo & install dependencies
 
 ```
-git clone https://github.com/scaffold-eth/scaffold-eth-2.git
+git clone https://github.com/JustAnotherDevv/SMART-NeS.git
 cd scaffold-eth-2
 yarn install
 ```
