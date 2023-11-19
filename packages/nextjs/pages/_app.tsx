@@ -23,6 +23,8 @@ const ScaffoldEthApp = ({ Component, pageProps }: AppProps) => {
   const { isDarkMode } = useDarkMode();
 
   useEffect(() => {
+    const body = document.body;
+    body.setAttribute("data-theme", isDarkMode ? "scaffoldEthDark" : "scaffoldEthDark");
     if (price > 0) {
       setNativeCurrencyPrice(price);
     }
@@ -38,14 +40,14 @@ const ScaffoldEthApp = ({ Component, pageProps }: AppProps) => {
       <RainbowKitProvider
         chains={appChains.chains}
         avatar={BlockieAvatar}
-        theme={isDarkTheme ? darkTheme() : lightTheme()}
+        theme={isDarkTheme ? darkTheme() : darkTheme() }//lightTheme()}
       >
         <div className="flex flex-col min-h-screen">
           <Header />
           <main className="relative flex flex-col flex-1">
             <Component {...pageProps} />
           </main>
-          <Footer />
+          {/* <Footer /> */}
         </div>
         <Toaster />
       </RainbowKitProvider>
