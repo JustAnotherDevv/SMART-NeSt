@@ -1,0 +1,294 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# we dont run compression extension
+# in regular CI because it is a
+# time consuming operation.
+# we delegate it to manually triggered CI
+# and only run base autobahn tests here.
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        target:
+          # Unit tests
+          - os: linux
+            cpu: amd64
+          - os: linux
+            cpu: i386
+          - os: macos
+            cpu: amd64
+          - os: windows
+            cpu: amd64
+          #- os: windows
+            #cpu: i386
+        branch: [version-1-2, version-1-4, version-1-6, devel]
+        include:
+          - target:
+              os: linux
+            builder: ubuntu-18.04
+            shell: bash
+          - target:
+              os: macos
+            builder: macos-10.15
+            shell: bash
+          - target:
+              os: windows
+            builder: windows-2019
+            shell: msys2 {0}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
+    runs-on: ${{ matrix.builder }}
+    continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install build dependencies (Linux i386)
+        if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND='noninteractive' apt-get install \
+            --no-install-recommends -yq gcc-multilib g++-multilib \
+            libssl-dev:i386
+          mkdir -p external/bin
+          cat << EOF > external/bin/gcc
+          #!/bin/bash
+          exec $(which gcc) -m32 "\$@"
+          EOF
+          cat << EOF > external/bin/g++
+          #!/bin/bash
+          exec $(which g++) -m32 "\$@"
+          EOF
+          chmod 755 external/bin/gcc external/bin/g++
+          echo '${{ github.workspace }}/external/bin' >> $GITHUB_PATH
+
+      - name: MSYS2 (Windows i386)
+        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
+        uses: msys2/setup-msys2@v2
+        with:
+          path-type: inherit
+          msystem: MINGW32
+          install: >-
+            base-devel
+            git
+            mingw-w64-i686-toolchain
+
+      - name: MSYS2 (Windows amd64)
+        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
+        uses: msys2/setup-msys2@v2
+        with:
+          path-type: inherit
+          install: >-
+            base-devel
+            git
+            mingw-w64-x86_64-toolchain
+
+      - name: Restore Nim DLLs dependencies (Windows) from cache
+        if: runner.os == 'Windows'
+        id: windows-dlls-cache
+        uses: actions/cache@v2
+        with:
+          path: external/dlls-${{ matrix.target.cpu }}
+          key: 'dlls-${{ matrix.target.cpu }}'
+
+      - name: Install DLLs dependencies (Windows)
+        if: >
+          steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
+          runner.os == 'Windows'
+        run: |
+          DLLPATH=external/dlls-${{ matrix.target.cpu }}
+          mkdir -p external
+          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
+          7z x -y external/windeps.zip -o"$DLLPATH"
+
+      - name: Path to cached dependencies (Windows)
+        if: >
+          runner.os == 'Windows'
+        run: |
+          echo '${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
+
+      - name: Derive environment variables
+        run: |
+          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
+            PLATFORM=x64
+          else
+            PLATFORM=x86
+          fi
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
+
+          ncpu=
+          MAKE_CMD="make"
+          case '${{ runner.os }}' in
+          'Linux')
+            ncpu=$(nproc)
+            ;;
+          'macOS')
+            ncpu=$(sysctl -n hw.ncpu)
+            ;;
+          'Windows')
+            ncpu=$NUMBER_OF_PROCESSORS
+            MAKE_CMD="mingw32-make"
+            ;;
+          esac
+          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
+          echo "ncpu=$ncpu" >> $GITHUB_ENV
+          echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
+
+      - name: Build Nim and Nimble
+        run: |
+          curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_nim.sh
+          env MAKE="${MAKE_CMD} -j${ncpu}" ARCH_OVERRIDE=${PLATFORM} NIM_COMMIT=${{ matrix.branch }} \
+            QUICK_AND_DIRTY_COMPILER=1 QUICK_AND_DIRTY_NIMBLE=1 CC=gcc \
+            bash build_nim.sh nim csources dist/nimble NimBinaries
+          echo '${{ github.workspace }}/nim/bin' >> $GITHUB_PATH
+
+      - name: Run tests
+        run: |
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+            # https://github.com/status-im/nimbus-eth2/issues/3121
+            export NIMFLAGS="-d:nimRawSetjmp"
+          fi
+          nim --version
+          nimble --version
+          nimble install -y --depsOnly
+          nimble test
+
+  autobahn-test:
+    if: github.event_name == 'push'
+    name: "Autobahn test suite"
+    runs-on: ubuntu-20.04
+
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        websock: [ws, wsc, wss, wssc]
+        branch: [version-1-2, version-1-4, version-1-6, devel]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build Nim and Nimble
+        run: |
+          curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_nim.sh
+          env MAKE="make -j$(nproc)" NIM_COMMIT=${{ matrix.branch }} \
+            QUICK_AND_DIRTY_COMPILER=1 QUICK_AND_DIRTY_NIMBLE=1 CC=gcc \
+            bash build_nim.sh nim csources dist/nimble NimBinaries
+          echo '${{ github.workspace }}/nim/bin' >> $GITHUB_PATH
+
+      - name: Setup Python version
+        uses: actions/setup-python@v2
+        with:
+          python-version: pypy-2.7
+
+      - name: Setup Autobahn.
+        run: |
+          sudo apt-get install -y python-dev
+          pip install virtualenv
+          pip install markdown2
+          virtualenv --python=/usr/bin/python2 autobahn
+          source autobahn/bin/activate
+          pip install autobahntestsuite
+          nimble install -y --depsOnly
+
+      - name: Generate index.html
+        if: matrix.websock == 'ws'
+        run: |
+          mkdir autobahn/reports
+          sed -i "s/COMMIT_SHA_SHORT/${GITHUB_SHA::7}/g" autobahn/index.md
+          sed -i "s/COMMIT_SHA/$GITHUB_SHA/g" autobahn/index.md
+          markdown2 autobahn/index.md > autobahn/reports/index.html
+
+      - name: Run Autobahn test suite.
+        run: |
+          source autobahn/bin/activate
+          case '${{ matrix.websock }}' in
+            ws)
+              nim c -d:release examples/server.nim
+              examples/server &
+              server=$!
+
+              cd autobahn
+              wstest --mode fuzzingclient --spec fuzzingclient.json
+            ;;
+            wsc)
+              nim c -d:tls -d:release -o:examples/tls_server examples/server.nim
+              examples/tls_server &
+              server=$!
+
+              cd autobahn
+              wstest --mode fuzzingclient --spec fuzzingclient_tls.json
+            ;;
+            wss)
+              cd autobahn
+              wstest --webport=0 --mode fuzzingserver --spec fuzzingserver.json &
+              server=$!
+
+              cd ..
+              nim c -d:release examples/autobahn_client
+              examples/autobahn_client
+            ;;
+            wssc)
+              cd autobahn
+              wstest --webport=0 --mode fuzzingserver --spec fuzzingserver_tls.json &
+              server=$!
+
+              cd ..
+              nim c -d:tls -d:release -o:examples/autobahn_tlsclient examples/autobahn_client
+              examples/autobahn_tlsclient
+            ;;
+          esac
+
+          kill $server
+
+      - name: Upload Autobahn result
+        uses: actions/upload-artifact@v2
+        with:
+          name: autobahn-report
+          path: ./autobahn/reports
+
+  deploy-test:
+    if: github.event_name == 'push'
+    name: "Deplay Autobahn results"
+    needs: autobahn-test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Download Autobahn reports
+        uses: actions/download-artifact@v2
+        with:
+          name: autobahn-report
+          path: ./autobahn_reports
+
+      - name: Deploy autobahn report.
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./autobahn_reports

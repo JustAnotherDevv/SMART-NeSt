@@ -1,0 +1,25 @@
+# system wide config file
+
+log-level = "TOML SW DEBUG"
+
+log-file  = "TOML SW LOGFILE"
+
+data-dir  = "TOML SW DATADIR"
+
+non-interactive = true
+
+validator = ["TOML SW VALIDATORS 0"]
+
+validators-dir = "TOML SW VALIDATOR DIR"
+
+secrets-dir = "TOML SW SECRET DIR"
+
+graffiti = "0x00112233445566778899AABBCCDDEEFF"
+
+stop-at-epoch = 3
+
+rpc-port = 1235
+
+rpc-address = "1.1.1.1"
+
+retry-delay = 3

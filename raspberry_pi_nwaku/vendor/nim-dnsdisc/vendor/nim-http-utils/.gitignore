@@ -1,0 +1,5 @@
+nimcache
+/tests/tvectors
+
+nimble.develop
+nimble.paths
